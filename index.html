@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#160d1f" />
+  <meta name="description" content="El Sombrero Encantado: una experiencia de Halloween de Impact Enterprises. Elige un sombrero y descubre tu regalo." />
+  <meta property="og:title" content="El Sombrero Encantado | Impact Enterprises" />
+  <meta property="og:description" content="Cinco sombreros encantados. Cinco premios sorpresa. ¡Todos ganan!" />
+  <meta property="og:image" content="/assets/portada.webp" />
+  <title>El Sombrero Encantado · Impact Enterprises</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preload" as="image" href="assets/portada.webp" />
+  <link rel="preload" as="image" href="assets/sombrero.webp" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="game.js" defer></script>
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true"></div>
+  <main class="app" id="main">
+    <section class="intro" id="intro" aria-label="Portada de El Sombrero Encantado">
+      <p class="brand brand-intro">✦ IMPACT ENTERPRISES ✦</p>
+      <img class="poster" src="assets/portada.webp" alt="El Sombrero Encantado: cinco sombreros mágicos en un castillo iluminado por la luna de Halloween" />
+      <div class="intro-actions">
+        <button class="button button-main" id="startButton" type="button">✦ INICIAR EL JUEGO ✦</button>
+        <p class="intro-note">Cinco sorpresas · Una elección · Todos ganan</p>
+      </div>
+    </section>
+
+    <section class="game-screen" id="gameScreen" hidden tabindex="-1" aria-label="Juego de sombreros encantados">
+      <header class="game-header">
+        <p class="brand">IMPACT ENTERPRISES</p>
+        <h1>El Sombrero <span>Encantado</span></h1>
+        <p class="game-lead" id="lead">¡Descubre la magia que te espera!</p>
+      </header>
+      <div class="game-toolbar">
+        <button class="tool-button" type="button" id="homeButton" aria-label="Regresar a portada">↶ <span>Portada</span></button>
+        <div class="tool-right">
+          <button class="tool-button" type="button" id="soundButton" aria-pressed="false">♫ <span>Sonido: no</span></button>
+          <button class="tool-button" type="button" id="fullscreenButton">⛶ <span>Pantalla completa</span></button>
+        </div>
+      </div>
+
+      <div class="status-area" aria-live="polite" aria-atomic="true">
+        <p class="status" id="status">Observa los regalos…</p>
+        <div class="countdown" id="countdown" hidden>3</div>
+      </div>
+
+      <div class="game-field" id="gameField" aria-label="Cinco sombreros encantados que esconden regalos">
+        <div class="moon-glow" aria-hidden="true"></div>
+        <div class="tiles" id="tiles"></div>
+      </div>
+      <p class="hint" id="hint">Los regalos son las opciones disponibles. El resultado se asigna aleatoriamente cuando eliges.</p>
+
+      <div class="bottom-bar">
+        <details class="rules">
+          <summary>Premios y probabilidades</summary>
+          <div class="rules-body">
+            <p>Cada partida entrega un premio. Todos los sombreros tienen las mismas posibilidades de activar el sorteo:</p>
+            <ul>
+              <li>Set de tazones: <strong>5%</strong></li>
+              <li>Tazas de café: <strong>5%</strong></li>
+              <li>Espumador: <strong>20%</strong></li>
+              <li>Cuchillo: <strong>35%</strong></li>
+              <li>Set de utensilios: <strong>35%</strong></li>
+            </ul>
+            <p>Las imágenes iniciales muestran los cinco premios posibles; no quedan asignados a un sombrero. Cada juego es independiente. No se garantiza una cantidad fija de cada premio por cada 20 jugadas. La entrega debe gestionarla el anfitrión, según existencias.</p>
+          </div>
+        </details>
+        <button type="button" class="history-link" id="historyButton">Ver historial de premios</button>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="resultDialog" class="result-dialog" aria-labelledby="winnerTitle">
+    <div class="result-inner">
+      <div class="result-sparkles" aria-hidden="true">✦ ✧ ✦</div>
+      <p class="winner-kicker">EL SOMBRERO HA HABLADO…</p>
+      <h2 id="winnerTitle">¡Felicidades!</h2>
+      <div class="win-image-wrap"><img id="winImage" alt="" /></div>
+      <p class="winner-caption">Tu regalo encantado es:</p>
+      <p class="winner-name" id="winName"></p>
+      <p class="winner-copy">¡Gracias por jugar con Impact Enterprises!</p>
+      <button class="button button-main" id="againButton" type="button">✦ VOLVER A JUGAR ✦</button>
+    </div>
+  </dialog>
+
+  <dialog id="historyDialog" class="history-dialog" aria-labelledby="historyTitle">
+    <h2 id="historyTitle">Historial de premios</h2>
+    <p class="history-description">Solo se guarda en este dispositivo y navegador. No se solicitan datos personales.</p>
+    <div id="historyList"></div>
+    <div class="history-actions">
+      <button class="button button-soft" id="downloadHistory" type="button">Descargar CSV</button>
+      <button class="button button-soft" id="clearHistory" type="button">Borrar historial</button>
+      <button class="button button-main" id="closeHistory" type="button">Cerrar</button>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <footer class="footer">Una experiencia de <strong>Impact Enterprises</strong> · Halloween 2026</footer>
+</body>
+</html>
