@@ -26,8 +26,15 @@ const slotPositions = [
 let phase = 'intro';
 let round = 0;
 let tiles = [];
-let soundEnabled = false;
+// Music and effects are ON by default; browser audio starts only after a real tap.
+let soundEnabled = true;
 let audioCtx = null;
+let soundBus = null;
+const ambientAudio = new Audio('assets/ambiente.mp3');
+ambientAudio.preload = 'auto';
+ambientAudio.loop = true;
+ambientAudio.volume = 0.50;
+let noiseBuffer = null;
 let toastTimer = null;
 
 function secureRandom() {
@@ -59,24 +66,75 @@ function shuffleArray(arr) {
   return result;
 }
 
-function chime(frequency = 580, duration = 0.095, type = 'sine', vol = 0.035) {
+// Begin/resume audio inside a direct button or touch interaction (Safari/iPad compatible).
+function unlockSound() {
   if (!soundEnabled) return;
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    audioCtx ??= new AC();
+    if (AC && !audioCtx) {
+      audioCtx = new AC();
+      soundBus = audioCtx.createGain();
+      soundBus.gain.value = 0.8;
+      soundBus.connect(audioCtx.destination);
+    }
+    if (audioCtx?.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+    // A real click is required for background music on iPhone and iPad.
+    if (ambientAudio.paused) ambientAudio.play().catch(() => {});
+  } catch (_) { /* The game remains playable without audio. */ }
+}
+function chime(frequency = 600, duration = 0.22, type = 'sine', vol = 0.11, delay = 0) {
+  if (!soundEnabled || !audioCtx || !soundBus) return;
+  try {
+    const now = audioCtx.currentTime + delay;
     const oscillator = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     oscillator.type = type;
-    oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
-    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-    oscillator.connect(gain).connect(audioCtx.destination);
-    oscillator.start();
-    oscillator.stop(audioCtx.currentTime + duration);
+    oscillator.frequency.setValueAtTime(frequency, now);
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.exponentialRampToValueAtTime(vol, now + 0.013);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    oscillator.connect(gain).connect(soundBus);
+    oscillator.start(now);
+    oscillator.stop(now + duration + .025);
   } catch (_) { /* Audio is optional */ }
 }
-
+function magicWhoosh(duration = 0.34, frequency = 380) {
+  if (!soundEnabled || !audioCtx || !soundBus) return;
+  try {
+    const now = audioCtx.currentTime;
+    if (!noiseBuffer) {
+      noiseBuffer = audioCtx.createBuffer(1, Math.ceil(audioCtx.sampleRate * 0.8), audioCtx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    }
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'bandpass'; filter.Q.value = 0.9;
+    filter.frequency.setValueAtTime(frequency, now);
+    filter.frequency.exponentialRampToValueAtTime(frequency * 3, now + duration);
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.exponentialRampToValueAtTime(.19, now + duration * .35);
+    gain.gain.exponentialRampToValueAtTime(.001, now + duration);
+    noise.connect(filter).connect(gain).connect(soundBus);
+    noise.start(now); noise.stop(now + duration + .015);
+  } catch (_) { /* Audio is optional */ }
+}
+function startMelody() {
+  chime(523.25, .38, 'sine', .12);
+  chime(659.25, .38, 'sine', .12, .14);
+  chime(783.99, .55, 'sine', .14, .30);
+}
+function winningMelody() {
+  magicWhoosh(.65, 450);
+  [523.25,659.25,783.99,1046.5].forEach((freq, index) => {
+    chime(freq, 1.1, 'sine', .18, .12 + index*.14);
+    chime(freq*2, .45, 'triangle', .025, .13 + index*.14);
+  });
+}
 function setStatus(value) { $('status').textContent = value; }
 function toast(message) {
   const element = $('toast');
@@ -116,6 +174,7 @@ function positionTiles() {
 }
 
 async function startGame() {
+  unlockSound();
   round += 1;
   const myRound = round;
   if (resultDialog.open) resultDialog.close();
@@ -127,17 +186,18 @@ async function startGame() {
   field.classList.remove('can-pick');
   setStatus('Observa los cinco regalos posibles…');
   $('lead').textContent = 'Cinco sombreros · Cinco sorpresas · ¡Todos ganan!';
-  $('hint').textContent = 'Los regalos que ves son las opciones disponibles. Cada elección activa un sorteo con probabilidades definidas.';
+  $('hint').textContent = 'Observa los regalos que la magia podría darte…';
   screen.focus({ preventScroll: true });
   window.scrollTo({ top: 0, behavior: 'instant' });
-  chime(680, .14);
+  startMelody();
   await sleep(1700);
   if (myRound !== round) return;
 
   phase = 'cover';
   setStatus('¡Los sombreros ocultan las sorpresas!');
   tiles.forEach(tile => tile.element.classList.add('covering'));
-  chime(390, .18);
+  magicWhoosh(.55, 280);
+  chime(392, .34, 'triangle', .08);
   await sleep(650);
   if (myRound !== round) return;
   tiles.forEach(tile => { tile.element.classList.remove('covering'); tile.element.classList.add('covered'); });
@@ -154,7 +214,8 @@ async function startGame() {
     while (nextSlots.every((v, i) => v === oldSlots[i]));
     tiles.forEach((tile, index) => { tile.slot = nextSlots[index]; tile.element.classList.add('is-shuffling'); });
     positionTiles();
-    chime(380 + step * 27, .07, 'triangle', .016);
+    if (step % 2 === 0) magicWhoosh(.35, 350 + step * 45);
+    chime(420 + step * 44, .15, 'triangle', .07);
     await sleep(reduceMotion ? 90 : (step < 6 ? 365 : 430));
   }
   if (myRound !== round) return;
@@ -163,7 +224,7 @@ async function startGame() {
   setStatus('✨ ¡Ahora elige tu sombrero encantado! ✨');
   $('lead').textContent = 'Toca uno de los cinco sombreros';
   tiles.forEach(tile => { tile.element.disabled = false; tile.element.classList.add('selectable'); });
-  $('hint').textContent = 'Toca cualquier sombrero. Todos activan el mismo sorteo; la sorpresa se asigna en el momento de elegir.';
+  $('hint').textContent = 'Toca el sombrero que más te guste para descubrir tu sorpresa. ¡Todos ganan!';
   chime(880, .22, 'sine', .05);
 }
 
@@ -178,12 +239,13 @@ async function selectHat(chosenElement) {
   tiles.forEach(tile => tile.element.classList.toggle('faded', tile !== winningTile));
   chosenElement.classList.add('selected');
   setStatus('¡Preparando tu sorpresa encantada!');
-  chime(550, .14);
+  magicWhoosh(.4, 380);
+  chime(550, .24);
   await sleep(300);
   if (myRound !== round) return;
   chosenElement.classList.add('revealed');
   setStatus('¡Felicidades! ¡Encontraste un regalo!');
-  chime(780, .2);setTimeout(() => chime(1040, .33), 145);
+  winningMelody();
   appendHistory(prize);
   await sleep(920);
   if (myRound !== round) return;
@@ -260,14 +322,22 @@ $('clearHistory').addEventListener('click', () => {
   try { localStorage.removeItem(STORAGE_KEY); } catch (_) { /* Ignore */ }
   historyDialog.close();toast('Se borró el historial local.');
 });
-$('soundButton').addEventListener('click', async () => {
+$('soundButton').addEventListener('click', () => {
   soundEnabled = !soundEnabled;
   $('soundButton').setAttribute('aria-pressed', String(soundEnabled));
   $('soundButton').querySelector('span').textContent = soundEnabled ? 'Sonido: sí' : 'Sonido: no';
+  $('soundButton').firstChild.textContent = soundEnabled ? '♫ ' : '♪̸ ';
+  $('soundButton').title = soundEnabled ? 'Silenciar el juego' : 'Activar sonido';
   if (soundEnabled) {
-    try { if (audioCtx?.state === 'suspended') await audioCtx.resume(); } catch (_) {}
-    chime(720, .15);
+    unlockSound();
+    startMelody();
+    toast('Sonido activado');
+  } else {
+    ambientAudio.pause();
+    if (audioCtx && soundBus) soundBus.gain.setTargetAtTime(0, audioCtx.currentTime, .02);
+    toast('Sonido desactivado');
   }
+  if (soundEnabled && audioCtx && soundBus) soundBus.gain.setTargetAtTime(.8, audioCtx.currentTime, .02);
 });
 $('fullscreenButton').addEventListener('click', async () => {
   try {

@@ -11,7 +11,7 @@ Juego de Halloween **completamente funcional** listo para mostrar a clientes en 
 5. **En ese instante** se sortea su premio con las probabilidades configuradas y el sombrero revela la fotografía del producto.
 6. Pulsa **Volver a jugar** para otra ronda.
 
-**Importante:** los cinco productos iniciales ilustran las opciones de premios, pero no están fijados a una posición. La mezcla es visual y no afecta las probabilidades. Cada sombrero tiene las mismas posibilidades de activar el sorteo. Esta información también aparece en las reglas de la pantalla.
+**Importante:** los cinco productos iniciales ilustran las opciones de premios, pero no están fijados a una posición. La mezcla es visual y no afecta las probabilidades. Cada sombrero tiene las mismas posibilidades de activar el sorteo. Los porcentajes no aparecen en la pantalla del cliente; solo están configurados en el código.
 
 ## Probabilidades exactas
 
@@ -56,7 +56,7 @@ Luego abre <http://localhost:8080> en tu navegador. No requiere npm ni instalar 
 
 - **Ver historial de premios** muestra cuántos productos se han sorteado **en este navegador y dispositivo**. Permite exportar un CSV o borrarlo.
 - Este historial se guarda en `localStorage`. Puede desaparecer si limpias el navegador o usas modo privado; no se comparte ni se sincroniza entre dispositivos.
-- El sonido está desactivado por defecto. Puedes activarlo durante el juego.
+- La música ambiental y los efectos mágicos están activados por defecto, al pulsar **Iniciar el juego**. Hay sonidos al comenzar, cubrir regalos, mezclar sombreros y revelar el premio. Puedes silenciarlo o reactivarlo con el botón **Sonido**. En iPhone y iPad debes comenzar con un toque y tener el volumen del dispositivo habilitado.
 - El botón de pantalla completa funciona donde el navegador lo permita. En iPhone se puede usar **Añadir a pantalla de inicio** desde Safari.
 - No se capturan nombres, teléfonos, correos ni información personal.
 - La entrega de premios físicos y el control de existencias son responsabilidad de quien dirige el evento. El juego no valida inventarios y no debe utilizarse si no puedes entregar el regalo que aparece.
@@ -73,6 +73,7 @@ assets/portada.webp    Imagen aprobada de campaña
 assets/fondo.webp      Castillo de Halloween
 assets/sombrero.webp   Sombrero recortado con transparencia
 assets/*.webp          Fotos reales de los cinco premios
+assets/ambiente.mp3     Música de fondo original incluida, sin dependencias externas
 ```
 
 **Uso:** dinámica presencial sin formulario. La participación y la entrega de premios deben cumplir con las reglas comerciales y promocionales aplicables.
