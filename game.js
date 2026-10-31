@@ -7,11 +7,11 @@
  * No personal data is collected and no server is necessary.
  */
 const PRIZES = Object.freeze([
-  { id: 'tazones',    name: 'Set de tazones',          percentage: 5,  image: 'assets/tazones.webp' },
-  { id: 'tazas',      name: 'Set de tazas de café',     percentage: 5,  image: 'assets/tazas.webp' },
-  { id: 'espumador',  name: 'Espumador',               percentage: 20, image: 'assets/espumador.webp' },
-  { id: 'cuchillo',   name: 'Cuchillo Santoku',        percentage: 35, image: 'assets/cuchillo.webp' },
-  { id: 'utensilios', name: 'Set de utensilios',       percentage: 35, image: 'assets/utensilios.webp' }
+  { id: 'pelador',    name: 'Pelador',    percentage: 20,  image: 'assets/pelador.jpg' },
+  { id: 'machacador', name: 'Machacador', percentage: 20,  image: 'assets/machacador.jpg' },
+  { id: 'paleta',     name: 'Paleta',     percentage: 20, image: 'assets/paleta.jpg' },
+  { id: 'destapador', name: 'Destapador', percentage: 20, image: 'assets/destapador.jpg' },
+  { id: 'utensilios', name: 'Utensilios', percentage: 20, image: 'assets/utensilios.jpg' }
 ]);
 const STORAGE_KEY = 'impact-sombrero-historial-v1';
 const $ = id => document.getElementById(id);
