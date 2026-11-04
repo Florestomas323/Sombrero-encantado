@@ -1,8 +1,8 @@
 'use strict';
 
 /**
- * El Sombrero Encantado - Impact Enterprises
- * Five exact independent probabilities; all plays win.
+ * El Sombrero Encantado - Impact Enterprises (edición de otoño)
+ * Five prizes, 20 % each; all plays win.
  * Prize is drawn only after selection. Hat choice is cosmetic.
  * No personal data is collected and no server is necessary.
  */
@@ -16,9 +16,33 @@ const PRIZES = Object.freeze([
 const STORAGE_KEY = 'impact-sombrero-historial-v1';
 const $ = id => document.getElementById(id);
 const intro = $('intro'), screen = $('gameScreen'), field = $('gameField'), tilesRoot = $('tiles');
-const resultDialog = $('resultDialog'), historyDialog = $('historyDialog');
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const historyDialog = $('historyDialog');
+const revealCard = $('revealCard'), leafLayer = $('leafLayer'), statusArea = document.querySelector('.status-area');
+const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
+const reduceMotion = motionQuery.matches;
+const prefersReducedMotion = () => motionQuery.matches;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, reduceMotion ? 80 : ms));
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+/* Selection reveal timeline (ms from the tap). Whole sequence: ~1.65 s. */
+const REVEAL = Object.freeze({
+  tilt: 200,          // 1. immediate small tilt; the other hats dim
+  glintAt: 170,       // 2. warm glint runs across the copper brooch
+  glint: 420,
+  leavesAt: 260,      //    three leaves leave the brooch, circle the hat and drift away
+  leaf: 1000,
+  leafStagger: 70,
+  liftAt: 520,        // 3. hat lifts and tilts back; prize appears underneath
+  lift: 520,
+  prizeAt: 600,
+  prize: 400,
+  cardAt: 1360,       // 4. prize stays alone for a moment, then name + button
+  card: 280
+});
+// Copper brooch position inside assets/sombrero.webp (percent of the image box).
+const BROOCH = Object.freeze({ x: 68.3, y: 57.2 });
+const LEAF_COLORS = [['#f2a541', '#b8561f'], ['#d9672c', '#8f2f1c'], ['#e8b04f', '#a4581f']];
+const LEAF_PATH = 'M50 3 57 22 69 15 66 38 85 28 80 45 97 50 79 60 85 73 62 68 59 84 52 76 52 97 48 97 48 76 41 84 38 68 15 73 21 60 3 50 20 45 15 28 34 38 31 15 43 22Z';
 const slotPositions = [
   { x: 30, y: 27 }, { x: 70, y: 27 },
   { x: 20, y: 76 }, { x: 50, y: 76 }, { x: 80, y: 76 }
@@ -153,15 +177,29 @@ function renderTiles() {
     button.disabled = true;
     button.setAttribute('aria-label', `Sombrero encantado ${index + 1}`);
     button.style.setProperty('--angle', [-3, 4, -5, 2, 5][index] + 'deg');
-    button.style.setProperty('--aura', ['#9e42ee', '#b44bf4', '#da89fe', '#8d4bf4', '#ec9b4f'][index]);
+    button.style.setProperty('--aura', ['#e08a3a', '#f0a24a', '#d66f2f', '#f3b860', '#c9622c'][index]);
     button.innerHTML = `
       <span class="pedestal" aria-hidden="true"></span>
+      <span class="prize-glow" aria-hidden="true"></span>
       <span class="product-preview"><img src="${prize.image}" alt="" draggable="false"></span>
-      <img class="hat-image" src="assets/sombrero.webp" alt="" draggable="false">
+      <span class="hat" aria-hidden="true">
+        <img class="hat-image" src="assets/sombrero.webp" alt="" draggable="false">
+        <span class="brooch-glint"><span class="glint-sweep"></span></span>
+      </span>
       <span class="star" aria-hidden="true">✦</span>`;
     button.addEventListener('click', () => selectHat(button));
     tilesRoot.appendChild(button);
-    return { element: button, slot: index, previewImg: button.querySelector('.product-preview img') };
+    return {
+      element: button,
+      slot: index,
+      angle: [-3, 4, -5, 2, 5][index],
+      hat: button.querySelector('.hat'),
+      glint: button.querySelector('.brooch-glint'),
+      sweep: button.querySelector('.glint-sweep'),
+      glow: button.querySelector('.prize-glow'),
+      preview: button.querySelector('.product-preview'),
+      previewImg: button.querySelector('.product-preview img')
+    };
   });
   positionTiles();
 }
@@ -177,8 +215,8 @@ async function startGame() {
   unlockSound();
   round += 1;
   const myRound = round;
-  if (resultDialog.open) resultDialog.close();
   if (historyDialog.open) historyDialog.close();
+  resetReveal();
   intro.hidden = true;
   screen.hidden = false;
   renderTiles();
@@ -228,32 +266,229 @@ async function startGame() {
   chime(880, .22, 'sine', .05);
 }
 
+function resetReveal() {
+  revealCard.hidden = true;
+  revealCard.classList.remove('is-visible', 'at-top', 'at-bottom');
+  revealCard.getAnimations().forEach(animation => animation.cancel());
+  field.classList.remove('is-revealing');
+  statusArea.classList.remove('is-covered');
+  leafLayer.replaceChildren();
+}
+
+// Untransformed geometry (in viewport px) of the chosen tile, its hat and its prize card.
+function revealGeometry(tile) {
+  const tileRect = tile.element.getBoundingClientRect();
+  const fieldRect = field.getBoundingClientRect();
+  const hatW = tile.hat.offsetWidth, hatH = tile.hat.offsetHeight;
+  // Covered hat sits at translate(-50%, -47%) from its layout box.
+  const hatCx = tileRect.left + tile.hat.offsetLeft;
+  const hatCy = tileRect.top + tile.hat.offsetTop + hatH * 0.03;
+  const prizeTop = tileRect.top + tile.preview.offsetTop;
+  const prizeBottom = prizeTop + tile.preview.offsetHeight;
+  return { tileRect, fieldRect, hatW, hatH, hatCx, hatCy, prizeTop, prizeBottom };
+}
+
+// Lift + scale that keep the whole hat visible above the prize, even for the top row on a phone.
+function liftPlan(geo) {
+  const allowanceAbove = Math.max(0, Math.min(64, geo.fieldRect.top - 10));
+  const topLimit = geo.fieldRect.top - allowanceAbove + 4;
+  const bottomLimit = geo.prizeTop - 6;
+  const tiltSquash = 0.95;               // rotateX(18deg) visually shortens the hat a little
+  const band = Math.max(20, bottomLimit - topLimit);
+  const scale = Math.max(0.6, Math.min(0.92, band / (geo.hatH * tiltSquash * 1.06)));
+  const visibleH = geo.hatH * scale * tiltSquash * 1.06;   // small margin for the backward rotation
+  const targetCy = bottomLimit - visibleH / 2;
+  const lift = Math.max(0, geo.hatCy - targetCy);
+  // Keep the hat horizontally inside the board on the far-left and far-right slots.
+  const halfW = geo.hatW * scale / 2 + 6;
+  const minCx = geo.fieldRect.left + halfW, maxCx = geo.fieldRect.right - halfW;
+  const shiftX = Math.min(Math.max(geo.hatCx, minCx), maxCx) - geo.hatCx;
+  return { lift, scale, shiftX, raisesAboveField: geo.hatCy - lift - visibleH / 2 < geo.fieldRect.top + 2 };
+}
+
+function makeLeaf(index) {
+  const [light, dark] = LEAF_COLORS[index % LEAF_COLORS.length];
+  const leaf = document.createElement('span');
+  leaf.className = 'leaf';
+  leaf.innerHTML = `<svg viewBox="0 0 100 100" focusable="false">
+    <defs><linearGradient id="leafGrad${index}" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${light}"/><stop offset="1" stop-color="${dark}"/></linearGradient></defs>
+    <path d="${LEAF_PATH}" fill="url(#leafGrad${index})"/>
+    <path d="M50 92V30M50 62 30 46M50 62 70 46M50 46 38 30M50 46 62 30" stroke="#5e2410" stroke-opacity=".45" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  </svg>`;
+  return leaf;
+}
+
+// Three small leaves spring from the brooch, spiral around the hat, then drift off to the sides.
+function launchLeaves(tile) {
+  const brooch = tile.glint.getBoundingClientRect();
+  const hatBox = tile.hat.getBoundingClientRect();
+  const bx = brooch.left + brooch.width / 2, by = brooch.top + brooch.height / 2;
+  const cx = hatBox.left + hatBox.width / 2, cy = hatBox.top + hatBox.height / 2;
+  const rx = hatBox.width * 0.6, ry = hatBox.height * 0.55;
+  const size = Math.round(Math.max(22, Math.min(36, hatBox.width * 0.18)));
+  const startAngle = Math.atan2((by - cy) / ry, (bx - cx) / rx);
+  const plans = [
+    { dir: -1, sweep: 1.25 * Math.PI, side: 1, rise: -0.35, spin: 420 },
+    { dir: 1, sweep: 1.05 * Math.PI, side: -1, rise: -0.1, spin: -380 },
+    { dir: -1, sweep: 1.6 * Math.PI, side: 1, rise: 0.25, spin: 520 }
+  ];
+  plans.forEach((plan, index) => {
+    const leaf = makeLeaf(index);
+    leaf.style.width = leaf.style.height = `${size}px`;
+    leafLayer.appendChild(leaf);
+    const frames = [];
+    const orbitSteps = 6;
+    frames.push({ offset: 0, opacity: 0, transform: `translate(${bx}px, ${by}px) rotate(0deg) scale(.25)` });
+    for (let step = 1; step <= orbitSteps; step++) {
+      const t = step / orbitSteps;
+      const angle = startAngle + plan.dir * plan.sweep * t;
+      const radius = 0.3 + 0.7 * t;
+      const x = cx + Math.cos(angle) * rx * radius;
+      const y = cy + Math.sin(angle) * ry * radius;
+      frames.push({
+        offset: 0.68 * t,
+        opacity: 1,
+        transform: `translate(${x}px, ${y}px) rotate(${plan.spin * 0.6 * t}deg) scale(${0.55 + 0.45 * Math.min(1, t * 2)})`
+      });
+    }
+    const exitX = cx + plan.side * (rx + hatBox.width * 0.75);
+    const exitY = cy + plan.rise * hatBox.height;
+    frames.push({ offset: 1, opacity: 0, transform: `translate(${exitX}px, ${exitY}px) rotate(${plan.spin}deg) scale(.8)` });
+    const animation = leaf.animate(frames, {
+      duration: REVEAL.leaf,
+      delay: index * REVEAL.leafStagger,
+      easing: 'cubic-bezier(.3,.1,.4,1)',
+      fill: 'both'
+    });
+    animation.finished.then(() => leaf.remove(), () => leaf.remove());
+  });
+}
+
+function hatTransform(tile, { y = '-47%', x = '0px', rotate = 0, tiltBack = 0, scale = 1 } = {}) {
+  return `translate(calc(-50% + ${x}), calc(${y})) perspective(700px) rotateX(${tiltBack}deg) rotate(${tile.angle + rotate}deg) scale(${scale})`;
+}
+
+function placeRevealCard(tile, geo) {
+  // Put the name + button over the half of the board the chosen prize is NOT in.
+  const prizeMid = (geo.prizeTop + geo.prizeBottom) / 2;
+  const chosenInTopHalf = prizeMid < geo.fieldRect.top + geo.fieldRect.height / 2;
+  revealCard.classList.toggle('at-bottom', chosenInTopHalf);
+  revealCard.classList.toggle('at-top', !chosenInTopHalf);
+}
+
+async function showRevealCard(prize, myRound) {
+  if (myRound !== round) return;
+  $('revealName').textContent = prize.name;
+  revealCard.hidden = false;
+  revealCard.classList.add('is-visible');
+  if (!prefersReducedMotion()) {
+    revealCard.animate(
+      [{ opacity: 0, transform: 'translate(-50%, 10px)' }, { opacity: 1, transform: 'translate(-50%, 0)' }],
+      { duration: REVEAL.card, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' }
+    );
+  }
+  setStatus(`¡Felicidades! Tu regalo es: ${prize.name}`);
+  $('lead').textContent = '¡El sombrero encantado ha hablado!';
+  $('hint').textContent = '¡Gracias por jugar con Impact Enterprises!';
+  $('againButton').focus({ preventScroll: true });
+  phase = 'finished';
+}
+
 async function selectHat(chosenElement) {
+  // First tap locks everything: a double tap can never produce a second prize.
   if (phase !== 'choose') return;
   phase = 'reveal';
   const myRound = round;
-  tiles.forEach(tile => { tile.element.disabled = true; tile.element.classList.remove('selectable'); });
-  const prize = drawPrize();
   const winningTile = tiles.find(tile => tile.element === chosenElement);
-  winningTile.previewImg.src = prize.image;
-  tiles.forEach(tile => tile.element.classList.toggle('faded', tile !== winningTile));
+  if (!winningTile) return;
+  const hoverPose = getComputedStyle(winningTile.hat).transform;
+  tiles.forEach(tile => {
+    tile.element.disabled = true;
+    tile.element.classList.remove('selectable');
+    tile.element.classList.toggle('faded', tile !== winningTile);
+  });
   chosenElement.classList.add('selected');
-  setStatus('¡Preparando tu sorpresa encantada!');
+
+  // One draw per participation, after the choice; image, name and history use this same prize.
+  const prize = drawPrize();
+  winningTile.previewImg.src = prize.image;
+  winningTile.previewImg.alt = prize.name;
+  appendHistory(prize);
+  setStatus('¡El sombrero está despertando!');
   magicWhoosh(.4, 380);
   chime(550, .24);
-  await sleep(300);
+
+  if (prefersReducedMotion()) {
+    // Reduced motion: a short cross-fade only, no tilt, lift or leaves.
+    const fade = { duration: 260, easing: 'ease', fill: 'both' };
+    winningTile.hat.animate([{ opacity: 1 }, { opacity: 0 }], fade);
+    winningTile.preview.animate([
+      { opacity: 0, transform: 'translate(-50%,0) scale(1)' },
+      { opacity: 1, transform: 'translate(-50%,0) scale(1)' }
+    ], fade);
+    winningTile.glow.animate([{ opacity: 0 }, { opacity: .7 }], fade);
+    winningMelody();
+    placeRevealCard(winningTile, revealGeometry(winningTile));
+    await wait(420);
+    return showRevealCard(prize, myRound);
+  }
+
+  // 1. Immediate small tilt.
+  const geo = revealGeometry(winningTile);
+  const plan = liftPlan(geo);
+  const tiltEnd = hatTransform(winningTile, { y: '-50%', rotate: -5, scale: 1.03 });
+  winningTile.hat.animate([
+    { transform: hoverPose === 'none' ? hatTransform(winningTile) : hoverPose, opacity: 1 },
+    { transform: hatTransform(winningTile, { y: '-51%', rotate: -9, scale: 1.05 }), opacity: 1, offset: 0.55 },
+    { transform: tiltEnd, opacity: 1 }
+  ], { duration: REVEAL.tilt, easing: 'cubic-bezier(.3,.7,.4,1)', fill: 'forwards' });
+
+  // 2. Warm glint across the copper brooch, then the leaves.
+  winningTile.glint.animate([
+    { opacity: 0, transform: 'translate(-50%,-50%) scale(.4)' },
+    { opacity: .9, transform: 'translate(-50%,-50%) scale(1.1)', offset: 0.4 },
+    { opacity: 0, transform: 'translate(-50%,-50%) scale(.9)' }
+  ], { duration: REVEAL.glint, delay: REVEAL.glintAt, easing: 'ease-out', fill: 'both' });
+  winningTile.sweep.animate([
+    { transform: 'translateX(-130%)' }, { transform: 'translateX(130%)' }
+  ], { duration: REVEAL.glint * 0.85, delay: REVEAL.glintAt, easing: 'ease-in-out', fill: 'both' });
+  chime(988, .3, 'sine', .07, REVEAL.glintAt / 1000);
+
+  await wait(REVEAL.leavesAt);
   if (myRound !== round) return;
+  launchLeaves(winningTile);
+  chime(1318.5, .26, 'triangle', .04, .05);
+
+  // 3. Hat lifts and tilts back; the prize was underneath all along.
+  await wait(REVEAL.liftAt - REVEAL.leavesAt);
+  if (myRound !== round) return;
+  field.classList.add('is-revealing');
+  statusArea.classList.toggle('is-covered', plan.raisesAboveField);
+  placeRevealCard(winningTile, geo);
+  winningTile.hat.animate([
+    { transform: tiltEnd },
+    { transform: hatTransform(winningTile, {
+      y: `-47% - ${plan.lift.toFixed(1)}px`, x: `${plan.shiftX.toFixed(1)}px`,
+      rotate: -8, tiltBack: 18, scale: plan.scale
+    }) }
+  ], { duration: REVEAL.lift, easing: 'cubic-bezier(.22,.9,.28,1.04)', fill: 'forwards' });
+  winningTile.preview.animate([
+    { opacity: 0, transform: 'translate(-50%, 7%) scale(.93)' },
+    { opacity: 1, transform: 'translate(-50%, 0) scale(1)' }
+  ], { duration: REVEAL.prize, delay: REVEAL.prizeAt - REVEAL.liftAt, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' });
+  winningTile.glow.animate([
+    { opacity: 0, transform: 'translateX(-50%) scale(.6)' },
+    { opacity: 1, transform: 'translateX(-50%) scale(1.08)', offset: 0.55 },
+    { opacity: .75, transform: 'translateX(-50%) scale(1)' }
+  ], { duration: REVEAL.prize + 260, delay: REVEAL.prizeAt - REVEAL.liftAt, easing: 'ease-out', fill: 'both' });
   chosenElement.classList.add('revealed');
-  setStatus('¡Felicidades! ¡Encontraste un regalo!');
   winningMelody();
-  appendHistory(prize);
-  await sleep(920);
-  if (myRound !== round) return;
-  $('winImage').src = prize.image;
-  $('winImage').alt = prize.name;
-  $('winName').textContent = prize.name;
-  resultDialog.showModal();
-  phase = 'finished';
+  setStatus('¡Mira lo que escondía tu sombrero!');
+
+  // 4. Let the prize be seen for a moment, then its name and the button.
+  await wait(REVEAL.cardAt - REVEAL.liftAt);
+  return showRevealCard(prize, myRound);
 }
 
 function readHistory() {
@@ -304,8 +539,8 @@ function downloadHistory() {
 function returnHome() {
   round += 1;
   phase = 'intro';
-  if (resultDialog.open) resultDialog.close();
   if (historyDialog.open) historyDialog.close();
+  resetReveal();
   screen.hidden = true; intro.hidden = false;
   window.scrollTo({top:0, behavior:'instant'});
   $('startButton').focus({preventScroll:true});
@@ -346,7 +581,6 @@ $('fullscreenButton').addEventListener('click', async () => {
     else { toast('En este navegador, usa “Añadir a pantalla de inicio” para verlo a pantalla completa.'); }
   } catch (_) { toast('Tu navegador no permitió activar pantalla completa.'); }
 });
-resultDialog.addEventListener('cancel', event => { event.preventDefault(); });
 historyDialog.addEventListener('click', event => { if (event.target === historyDialog) historyDialog.close(); });
 
 // Also available to simple automated smoke tests and debug consoles.

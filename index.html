@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#160d1f" />
-  <meta name="description" content="El Sombrero Encantado: una experiencia de Halloween de Impact Enterprises. Elige un sombrero y descubre tu regalo." />
+  <meta name="theme-color" content="#1d1209" />
+  <meta name="description" content="El Sombrero Encantado: una experiencia de otoño de Impact Enterprises. Elige un sombrero y descubre tu regalo." />
   <meta property="og:title" content="El Sombrero Encantado | Impact Enterprises" />
   <meta property="og:description" content="Cinco sombreros encantados. Cinco premios sorpresa. ¡Todos ganan!" />
   <meta property="og:image" content="/assets/portada.webp" />
@@ -49,6 +49,11 @@
       <div class="game-field" id="gameField" aria-label="Cinco sombreros encantados que esconden regalos">
         <div class="moon-glow" aria-hidden="true"></div>
         <div class="tiles" id="tiles"></div>
+        <div class="reveal-card" id="revealCard" hidden>
+          <p class="reveal-kicker">¡Felicidades! Tu regalo es:</p>
+          <p class="reveal-name" id="revealName"></p>
+          <button class="button button-main" id="againButton" type="button">✦ VOLVER A JUGAR ✦</button>
+        </div>
       </div>
       <p class="hint" id="hint">Observa los regalos… pronto podrás elegir tu sombrero.</p>
 
@@ -57,19 +62,6 @@
       </div>
     </section>
   </main>
-
-  <dialog id="resultDialog" class="result-dialog" aria-labelledby="winnerTitle">
-    <div class="result-inner">
-      <div class="result-sparkles" aria-hidden="true">✦ ✧ ✦</div>
-      <p class="winner-kicker">EL SOMBRERO HA HABLADO…</p>
-      <h2 id="winnerTitle">¡Felicidades!</h2>
-      <div class="win-image-wrap"><img id="winImage" alt="" /></div>
-      <p class="winner-caption">Tu regalo encantado es:</p>
-      <p class="winner-name" id="winName"></p>
-      <p class="winner-copy">¡Gracias por jugar con Impact Enterprises!</p>
-      <button class="button button-main" id="againButton" type="button">✦ VOLVER A JUGAR ✦</button>
-    </div>
-  </dialog>
 
   <dialog id="historyDialog" class="history-dialog" aria-labelledby="historyTitle">
     <h2 id="historyTitle">Historial de premios</h2>
@@ -83,6 +75,7 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <footer class="footer">Una experiencia de <strong>Impact Enterprises</strong> · Halloween 2026</footer>
+  <div class="leaf-layer" id="leafLayer" aria-hidden="true"></div>
+  <footer class="footer">Una experiencia de <strong>Impact Enterprises</strong> · Otoño 2026</footer>
 </body>
 </html>
