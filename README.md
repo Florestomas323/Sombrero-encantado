@@ -17,11 +17,11 @@ Juego de Halloween **completamente funcional** listo para mostrar a clientes en 
 
 | Premio | Probabilidad |
 |---|---:|
-| Set de tazones | **5%** |
-| Set de tazas de café | **5%** |
-| Espumador | **20%** |
-| Cuchillo Santoku | **35%** |
-| Set de utensilios | **35%** |
+| Cuchillo | **40%** |
+| Utensilios | **40%** |
+| Tazas de café | **10%** |
+| 3 tazones | **5%** |
+| Tabla | **5%** |
 
 Cada participación tiene un resultado ganador. El código usa `crypto.getRandomValues()` cuando el navegador lo permite; cada sorteo es independiente. **Las probabilidades no garantizan cantidades fijas** en grupos de 20, 40 o 100 partidas. Confirma que cuentas con premios suficientes antes de usarlo ante clientes.
 

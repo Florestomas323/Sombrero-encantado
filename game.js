@@ -2,16 +2,16 @@
 
 /**
  * El Sombrero Encantado - Impact Enterprises (edición de otoño)
- * Five prizes, 20 % each; all plays win.
+ * Five prizes (40/40/10/5/5 %); all plays win.
  * Prize is drawn only after selection. Hat choice is cosmetic.
  * No personal data is collected and no server is necessary.
  */
 const PRIZES = Object.freeze([
-  { id: 'pelador',    name: 'Pelador',    percentage: 20,  image: 'assets/pelador.jpg' },
-  { id: 'machacador', name: 'Machacador', percentage: 20,  image: 'assets/machacador.jpg' },
-  { id: 'paleta',     name: 'Paleta',     percentage: 20, image: 'assets/paleta.jpg' },
-  { id: 'destapador', name: 'Destapador', percentage: 20, image: 'assets/destapador.jpg' },
-  { id: 'utensilios', name: 'Utensilios', percentage: 20, image: 'assets/utensilios.jpg' }
+  { id: 'cuchillo',   name: 'Cuchillo',      percentage: 40, image: 'assets/cuchillo.jpg' },
+  { id: 'utensilios', name: 'Utensilios',    percentage: 40, image: 'assets/utensilios-cucharas.jpg' },
+  { id: 'tazas',      name: 'Tazas de café', percentage: 10, image: 'assets/tazas.webp' },
+  { id: 'tazones',    name: '3 tazones',     percentage: 5,  image: 'assets/tazones.webp' },
+  { id: 'tabla',      name: 'Tabla',         percentage: 5,  image: 'assets/tabla.webp' }
 ]);
 const STORAGE_KEY = 'impact-sombrero-historial-v1';
 const $ = id => document.getElementById(id);
